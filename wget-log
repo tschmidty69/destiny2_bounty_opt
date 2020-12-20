@@ -1,6 +1,0 @@
---2020-12-18 18:05:14--  https://www.bungie.net/Platform/App/OAuth/token/?client_id=34353
-Resolving www.bungie.net (www.bungie.net)... 2606:4700:10::6814:1c1e, 2606:4700:10::6814:1d1e, 104.20.28.30, ...
-Connecting to www.bungie.net (www.bungie.net)|2606:4700:10::6814:1c1e|:443... connected.
-HTTP request sent, awaiting response... 405 Method Not Allowed
-2020-12-18 18:05:14 ERROR 405: Method Not Allowed.
-

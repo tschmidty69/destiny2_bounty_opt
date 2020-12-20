@@ -1,11 +1,30 @@
 {% extends "base.html" %}
 {% import "bootstrap/wtf.html" as wtf %}
 
-{% block title %}AllynH - Vault{% endblock %}
+{% block title %}Destiny2 Bounty Optimizer - Bounties{% endblock %}
 
 {% block page_content %}
 <div>
 	<h2>Bounties</h2>
-	<a href=" {{ url_for('index') }} ">Return to login page.</a></br>
+	{% if error %}{{error}}<br>{% endif %}
+	{% if memberships %}
+		<select name="User" method="POST" action="/bounties">
+			{% for member in memberships -%}
+	    	<option value= "{{member}}" SELECTED>{{member['displayName']}}</option>"
+			{% endfor -%}
+		</select><br>
+
+		<form action="" method="POST">
+			{{ form.hidden_tag() }}
+			{{ form.select_user }}
+		</form>
+	{% endif %}
+	<table style="width:100%">
+	{% for bounty in bounties -%}
+		<tr><th>{{ bounty.name }}</th><th>{{ bounty.description }}</th></tr>
+	{% endfor -%}
+  </table>
+
+	<br><a href=" {{ url_for('index') }} ">Return to login page.</a></br>
 
 {% endblock %}
