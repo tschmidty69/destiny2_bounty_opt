@@ -30,12 +30,11 @@
 }
 
 .bounty-image{
-  display: block;
+  display: flex;
   text-align: left;
-  color: white;
   float: left;
-  height: 50px;
-  width: 50px;
+  height: auto;
+  width: auto;
   max-width: 100%;
   max-height: 100%;
   background-color: black;

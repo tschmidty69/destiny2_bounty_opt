@@ -14,8 +14,8 @@ import urllib
 import pickle
 #from colorama import init, Fore, Back, Style
 #from requests_oauthlib import OAuth2Session
-from config import Config, hashes, hashes_trunc, class_names
-from forms import *
+from config import *
+#from forms import *
 from zipfile import ZipFile
 import sqlite3
 from flask_wtf.csrf import CSRFProtect
@@ -115,7 +115,6 @@ def bounties():
     characters = []
     bounties = []
     error = ''
-    form = select_user()
     global destiny_data
     if not session.get('profile'):
         session['profile'] = {}
@@ -129,6 +128,7 @@ def bounties():
     if not destiny_data:
         destiny_data = build_dict()
 
+    # Good god this is clunky
     if request.method == 'POST':
         app.logger.info('POST: %s', request.form)
         if request.form.get('profile'):
@@ -151,7 +151,7 @@ def bounties():
             memberships = response.get('Response').get('destinyMemberships')
             memberships = reversed(memberships)
     elif 'characterId' in session.get('character'):
-        fetch_character()
+        fetch_character_items()
     else:
         fetch_characters()
 
@@ -160,7 +160,7 @@ def bounties():
                             class_names=class_names)
 
 
-def fetch_character():
+def fetch_character_items():
     app.logger.info("session['character']: %s: %s", type(session['character']), session['character'])
     # Get Characters with inventory
     session['bounties'] = []
@@ -175,8 +175,12 @@ def fetch_character():
         if destiny_data['DestinyInventoryItemDefinition'][item['itemHash']]['itemType'] != 26:
             continue
         else:
+            item_data['itemHash'] = item['itemHash']
             session['bounties'].append(item_data)
+        # endid
         app.logger.info("%s\t: %s - %s", item['itemHash'], item_data['name'], item_data['description'] )
+    classify_bounties()
+    return
 
 
 def fetch_characters():
@@ -202,18 +206,23 @@ def fetch_characters():
 
 
 def classify_bounties():
-    bounty_classed = {'location': [],
-                      'activity': [],
-                      'element': [],
-                      'precision': [],
-                      'finisher': [],
-                      'enemy-race': [],
-                      'enemy-type': []
-                      }
+    bounty_classed = {}
+    # test = {'location': [],
+    #                   'activity': [],
+    #                   'element': [],
+    #                   'precision': [],
+    #                   'finisher': [],
+    #                   'enemy-race': [],
+    #                   'enemy-type': []
+    #                   }
     for bounty in session.get('bounties'):
-    # item['itemHash'], item_data['name'], item_data['description']
-        continue 
-
+        bounty_classed[bounty['itemHash']] = {}
+        for location in locations:
+            if location in bounty['description']:
+                # TODO CONVERT TO REDIS
+                bounty_classed[bounty['itemHash']]['location']=location
+    print(bounty_classed)
+    return
 
 @app.route('/callback/bungie')
 def bungie_callback():
@@ -261,9 +270,7 @@ def get_token(code):
     #app.logger.info('HEADERS: {}'.format(HEADERS))
     response = requests.post(access_token_url, data=post_data, headers=HEADERS)
     app.logger.info("access_token_url: %s", url)
-    app.logger.info("response: %s %s", response, response.content)
-    #app.logger.info(format_prepped_request(response.request, 'utf8'))
-    app.logger.debug(response.json())
+    # app.logger.debug("response: %s %s", response, response.content)
     try:
         token_json = response.json()['access_token']
         refresh_expires_in = datetime.now() + timedelta(seconds=int(response.json().get('expires_in')))
@@ -272,7 +279,42 @@ def get_token(code):
         app.logger.info(e)
         token_json = ""
         pass
+
     # app.logger.info('token_json: {}'.format(token_json))
+    return
+
+
+def refresh_token():
+    #app.logger.debug("token_json       : %s", session['token_json'])
+    app.logger.info("refresh_expires_in: %s", session['refresh_expires_in'])
+    #app.logger.info("now               : %s", datetime.now())
+    expiring = session['refresh_expires_in'] - datetime.now()
+    #expires = datetime.strptime(session['refresh_expires_in'], '%Y-%m-%d %H:%M:%S.%f')
+    if datetime.now() > session['refresh_expires_in']:
+        app.logger.info("expired: %s seconds",  expiring.seconds)
+        code = session['code']
+        post_data = {'CLIENT_ID': CLIENT_ID, 'grant_type': 'refresh_token',
+                     'refresh_token': session['token_json']}
+        url = access_token_url + urllib.parse.urlencode(post_data)
+        HEADERS['Content-type']='application/x-www-form-urlencoded'
+        #app.logger.info('HEADERS: {}'.format(HEADERS))
+        response = requests.post(access_token_url, data=post_data, headers=HEADERS)
+        app.logger.info("access_token_url: %s", url)
+        # app.logger.debug("response: %s %s", response, response.content)
+        try:
+            token_json = response.json()['access_token']
+            refresh_expires_in = datetime.now() + timedelta(seconds=int(response.json().get('expires_in')))
+            save_session(code, token_json, refresh_expires_in)
+        except Exception as e:
+            app.logger.info(e)
+            token_json = ""
+            pass
+        # app.logger.info('token_json: {}'.format(token_json))
+    else:
+        app.logger.info("expiring in: %s minutes",  expiring.seconds/60)
+
+    oauth_session.headers["X-API-Key"] = API_KEY
+    oauth_session.headers["Authorization"] = 'Bearer ' + str(session['token_json'])
     return
 
 
@@ -283,7 +325,6 @@ def save_session(code, token_json, refresh_expires_in):
     session['token_json']=token_json
     session['refresh_expires_in']=refresh_expires_in
     # access_token = "Bearer " + str(token_json)
-
 
 
 # Save state parameter used in CSRF protection:
@@ -300,27 +341,11 @@ def is_valid_state(state):
     else:
         return False
 
-def refresh_token():
-    #app.logger.debug("token_json       : %s", session['token_json'])
-    app.logger.info("refresh_expires_in: %s", session['refresh_expires_in'])
-    #app.logger.info("now               : %s", datetime.now())
-    expiring = session['refresh_expires_in'] - datetime.now()
-    #expires = datetime.strptime(session['refresh_expires_in'], '%Y-%m-%d %H:%M:%S.%f')
-    if datetime.now() > session['refresh_expires_in']:
-        app.logger.info("expired: %s seconds",  expiring.seconds)
-        code = session['code']
-        token = get_token(code)
-    else:
-        app.logger.info("expiring in: %s minutes",  expiring.seconds/60)
-    oauth_session.headers["X-API-Key"] = API_KEY
-    oauth_session.headers["Authorization"] = 'Bearer ' + str(session['token_json'])
-    return
-
 
 # @app.before_first_request
 @cached('build_dict.pickle')
 def build_dict():
-    hashes = {'DestinyInventoryItemDefinition': 'hash'}
+    hashes = hashes_trunc
     #connect to the manifest
     con = sqlite3.connect('manifest.content')
     app.logger.info('Connected')
@@ -337,14 +362,28 @@ def build_dict():
         #this returns a list of tuples: the first item in each tuple is our json
         items = cur.fetchall()
 
-        #create a list of jsons
-        item_jsons = [json.loads(item[0]) for item in items]
+        # create a list of jsons
+        # item[0]['hash'], item[0]['name'], item[0]['description']
+        # hacked this to only pull certain keys to save memory for heroku
+        items_json = []
+        for item in items:
+            # print("item", type(item[0]), item[0])
+            item_json = json.loads(item[0])
+            # if item_json.get('itemType') == 26:
+            # print("loading", item_json['displayProperties']['name'], ":",
+            #       item_json['displayProperties']['description'])
+            items_json.append({'hash': item_json['hash'],
+                               'itemType': item_json['itemType'],
+                               'displayProperties': item_json['displayProperties']})
+
+
+        # items_json = [json.loads(item[0]) for item in items]
 
         #create a dictionary with the hashes as keys
         #and the jsons as values
         item_dict = {}
         hash = hashes[table_name]
-        for item in item_jsons:
+        for item in items_json:
             item_dict[item[hash]] = item
 
         #add that dictionary to our all_data using the name of the table
@@ -352,6 +391,7 @@ def build_dict():
         all_data[table_name] = item_dict
 
     app.logger.info('Dictionary Generated!')
+    con.close()
     return all_data
 
 
