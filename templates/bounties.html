@@ -8,23 +8,60 @@
 	<h2>Bounties</h2>
 	{% if error %}{{error}}<br>{% endif %}
 	{% if memberships %}
-		<select name="User" method="POST" action="/bounties">
-			{% for member in memberships -%}
-	    	<option value= "{{member}}" SELECTED>{{member['displayName']}}</option>"
-			{% endfor -%}
-		</select><br>
-
-		<form action="" method="POST">
-			{{ form.hidden_tag() }}
-			{{ form.select_user }}
+		<form class="form-inline" method="POST" action="{{ url_for('bounties') }}">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+		  <div class="form-group">
+		    <div class="input-group">
+	        <span class="input-group-addon">Bungie.net Profile </span>
+					<select name="profile" onchange="this.form.submit()">
+						{% for member in memberships -%}
+				    	<option value= "{{member}}" SELECTED><div class="member-image"><img src="https://bungie.net{{member.iconPath}}"
+								style="height:1em;">{{ member.displayName }}&nbsp;</div>
+						{% endfor -%}
+					</select>
+					<input type="submit" id="profile" name="Go" value="Go"/><br>
+		    </div>
+		  </div>
 		</form>
+		<div id="form-response2"></div>
 	{% endif %}
+
+	{% if 'displayName' in session.profile %}
+		<h3><div class="member-image"><img src="https://bungie.net{{session.profile.iconPath}}"
+			style="height:1em;">
+			{{ session.profile.displayName }}&nbsp;</div></h3><br><br>
+	{% endif %}
+
+	{% if 'characterId' in session.characters.0 %}
+	<form class="form-inline" method="POST" action="{{ url_for('bounties') }}">
+		<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+		<input type="hidden" name="profile" value="{{session.profile}}"/>
+		<div class="form-group">
+			<div class="input-group">
+				<span class="input-group-addon">Character </span>
+				<select name="character">
+					{% for character in session.characters -%}
+						<option value= "{{character}}" SELECTED>{{ class_names[character.classType] }}</option>"
+					{% endfor -%}
+				</select>
+				<input type="submit" id="load-character" name="Go" value="Go"/><br>
+			</div>
+		</div>
+	</form>
+	<div id="form-response2"></div>
+	{% endif %}
+
+	<h4>Bounties</h4>
 	<table style="width:100%">
-	{% for bounty in bounties -%}
-		<tr><th>{{ bounty.name }}</th><th>{{ bounty.description }}</th></tr>
-	{% endfor -%}
+		{% for bounty in session.bounties -%}
+			<tr>
+				<td><div class="bounty-image"><img src="https://bungie.net{{bounty.icon}}"></div></td>
+			  <td>{{ bounty.name }}</td>
+				<td>{{ bounty.description }}</td>
+			</tr>
+		{% endfor -%}
   </table>
 
-	<br><a href=" {{ url_for('index') }} ">Return to login page.</a></br>
+	<br><a href=" {{ url_for('index') }} ">Return to login page.</a>
 
 {% endblock %}

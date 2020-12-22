@@ -8,6 +8,8 @@ class Config(object):
     # Flask config
     SESSION_PERMANENT = True
 
+class_names = ['Titan', 'Warlock', 'Hunter']
+
 hashes = {
     'DestinyActivityDefinition': 'activityHash',
     'DestinyActivityTypeDefinition': 'activityTypeHash',
