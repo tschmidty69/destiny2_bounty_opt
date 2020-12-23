@@ -1,4 +1,5 @@
 import os
+import redis
 
 class Config(object):
     API_KEY = os.environ.get('API_KEY')
@@ -8,22 +9,34 @@ class Config(object):
     # Flask config
     SESSION_PERMANENT = True
 
+    # Flask-Session
+    SESSION_TYPE = os.environ.get('SESSION_TYPE')
+    # could also have done 'url=rediss://:password@host:port/0'
+    SESSION_REDIS = redis.Redis(host=os.environ.get('REDIS_HOST'),
+                                port=os.environ.get('REDIS_PORT'),
+                                password=os.environ.get('REDIS_PW'))
+
 class_names = ['Titan', 'Hunter', 'Warlock']
 
-locations = ['European Dead Zone',
-             'Europa',
-             'Nessus'
-             ]
-
-activities = ['strike', 'gambit', 'crucible', 'empire hunt', 'lost sector']
-
-weapons = ['Auto Rifle', 'Fusion Rifle', 'Linear Fusion Rifle', 'Pulse Rifle',
-           'Submachine Gun', 'Machine Gun', 'Bow', 'Trace Rifle', 'Shotgun',
-           'Sidearm', 'Hand Cannon']
-
-enemy_races = ['cabal', 'fallen', 'hive', 'taken', 'scorn']
-
-enemy_types = ['walker', 'captain', 'knight', 'acolyte', 'ogre']
+classifications = {
+    'locations': ['Cosmodrome', 'Europa', 'European Dead Zone', 'Moon', 'Nessus'],
+    'sublocations': ['Cadmus Ridge', 'Aesterian Abyss'],
+    'activities': ['Strike', 'Gambit', 'Crucible', 'Empire Hunt', 'Lost Sector',
+                   'public events', 'patrols', 'Loot chests'],
+    'weapons': ['Auto Rifle', 'Fusion Rifle', 'Linear Fusion Rifle', 'Pulse Rifle',
+               'Submachine Gun', 'Machine Gun', 'Bow', 'Trace Rifle', 'Shotgun',
+               'Sidearm', 'Sniper Rifles', 'Hand Cannon'],
+    'weapon_types': ['Kinetic', 'Energy', 'Power', 'Void weapons', 'Arc weapons',
+                     'Solar weapons', 'Special ammo', 'Primary ammo', 'Heavy ammo'],
+    'precision': ['precision'],
+    'finishers': ['finishers'],
+    'multiple': ['multiple'],
+    'rapidly': ['rapidly'],
+    'ability_types': ['Super', 'Void abilities', 'Arc abilities', 'Solar abilities', 'grenades'],
+    'elements': ['Solar kills', 'Arc kills', 'Void kills'],
+    'enemy_races': ['Cabal', 'Fallen', 'Hive', 'Taken', 'Scorn', 'Vex'],
+    'enemy_types': ['Walker', 'Captain', 'Knight', 'Acolyte', 'Ogre', 'Shrieker']
+}
 
 
 # A lot of these are outdated so not using them

@@ -8,13 +8,14 @@ import json
 from OpenSSL import SSL
 import time
 from flask_bootstrap import Bootstrap
-from Inventory_Management import *
+from flask_session import Session
+from config import *
+
 # from bounties import *
 import urllib
 import pickle
 #from colorama import init, Fore, Back, Style
 #from requests_oauthlib import OAuth2Session
-from config import *
 #from forms import *
 from zipfile import ZipFile
 import sqlite3
@@ -41,9 +42,12 @@ dictConfig({
     }
 })
 
+sess = Session()
+
 # initialise the app:
 app = Flask(__name__)
 app.config.from_object(Config)
+sess.init_app(app)
 
 bootstrap = Bootstrap(app)
 csrf = CSRFProtect(app)
@@ -75,7 +79,7 @@ def cached(cachefile, ttl=86400):
                # 86400 is one day
                if (time.time() - creation_time) // (ttl) >= 1:
                    os.unlink(cachefile)
-                   app.logger.info("removing cached result from '%s' (older than %s hours)" % cachefile, ttl/3600)
+                   app.logger.info("removing cached result from '%s' (older than %s hours)" % (cachefile, ttl/3600))
 
             # if cache exists -> load it and return its content
             if os.path.exists(cachefile):
@@ -151,18 +155,19 @@ def bounties():
             memberships = response.get('Response').get('destinyMemberships')
             memberships = reversed(memberships)
     elif 'characterId' in session.get('character'):
-        fetch_character_items()
+        fetch_character_inventory()
     else:
         fetch_characters()
 
     return render_template('bounties.html', error=error,
                             memberships=memberships,
-                            class_names=class_names)
+                            class_names=class_names,
+                            classifications=classifications)
 
 
-def fetch_character_items():
-    app.logger.info("session['character']: %s: %s", type(session['character']), session['character'])
-    # Get Characters with inventory
+def fetch_character_inventory():
+    # app.logger.info("session['character']: %s: %s", type(session['character']), session['character'])
+    # Get Character's inventory
     session['bounties'] = []
     url = ("/Destiny2/" + str(session['profile']['membershipType']) + "/Profile/" +
            str(session['profile']['membershipId']) + "/Character/" +
@@ -172,14 +177,21 @@ def fetch_character_items():
     response = bungie_get(oauth_session, url)
     for item in response['Response']['inventory']['data']['items']:
         item_data = destiny_data['DestinyInventoryItemDefinition'][item['itemHash']]['displayProperties']
+        # we only care about bounties (item # 26)
         if destiny_data['DestinyInventoryItemDefinition'][item['itemHash']]['itemType'] != 26:
             continue
         else:
+            # TODO: Lookup instanceId and exclude if completed and append progress if not
+            # set the hash which is later used to look up info
             item_data['itemHash'] = item['itemHash']
+            # itemInstanceId will give us completion data, etc.
+            item_data['itemInstanceId'] = item['itemInstanceId']
+            # app.logger.info("item: %s", item)
+            # clean this up man, turn it into a db or something
             session['bounties'].append(item_data)
         # endid
         app.logger.info("%s\t: %s - %s", item['itemHash'], item_data['name'], item_data['description'] )
-    classify_bounties()
+    session['classified_bounties'] = classify_bounties()
     return
 
 
@@ -206,23 +218,85 @@ def fetch_characters():
 
 
 def classify_bounties():
-    bounty_classed = {}
-    # test = {'location': [],
-    #                   'activity': [],
-    #                   'element': [],
-    #                   'precision': [],
-    #                   'finisher': [],
-    #                   'enemy-race': [],
-    #                   'enemy-type': []
-    #                   }
+    bounties_classed = []
     for bounty in session.get('bounties'):
-        bounty_classed[bounty['itemHash']] = {}
-        for location in locations:
-            if location in bounty['description']:
-                # TODO CONVERT TO REDIS
-                bounty_classed[bounty['itemHash']]['location']=location
-    print(bounty_classed)
-    return
+        bounties_classed.append(bounty)
+        for (key, types) in classifications.items():
+            for value in types:
+                if value in bounty['description']:
+                    # TODO CONVERT TO REDIS
+                    #print(key, value)
+                    bounty[key]=value
+                    #print("itemHash", bounties_classed[bounty['itemHash']])
+            if not bounty.get(key):
+                    bounty[key]=''
+    # print(bounties_classed)
+    # for bounty in session.get('bounties'):
+    #     print(bounty)
+    for bounty in bounties_classed:
+        print(bounty)
+    bounties = combine_bounties(bounties_classed)
+    return bounties
+
+
+def combine_bounties(bounties_classed):
+    final_list = []
+    matched = False
+    for dict1 in bounties_classed:
+        sub_list = []
+        for dict2 in bounties_classed:
+            if dict1 == dict2:
+                continue
+            #print("comparing ", dict1)
+            #print("comparing ", dict2)
+            #print('---')
+            conflict = False
+            for (value, idontcare) in classifications.items():
+                if not (dict1[value] == dict2[value] or dict1[value] == '' or dict2[value] == ''):
+                    conflict = True
+            if not conflict:
+                # so these two match
+                # now make sure it doesn't conflict with the other entries already there
+                if sub_list:
+                    #print('--- checking sub_list')
+                    subsublist = sub_list
+                    sub_conflict = False
+                    for dict3 in subsublist:
+                        sub_value_conflict = False
+                        if dict2 == dict3:
+                            continue
+                        #print("    ", dict2)
+                        #print("    ", dict3)
+                        for (value, idontcare) in classifications.items():
+                            if not (dict2[value] == dict3[value] or dict2[value] == '' or dict3[value] == ''):
+                                sub_value_conflict = True
+                        if sub_value_conflict:
+                            sub_conflict = True
+                            print("    conflict", dict2['itemHash'], dict3['itemHash'])
+                        else:
+                            print('    no conflict for these', dict2['itemHash'], dict3['itemHash'])
+                    if not sub_conflict:
+                        print('    adding to list', dict2['itemHash'])
+                        sub_list.append(dict2)
+                else:
+                    sub_list.append(dict1)
+                    sub_list.append(dict2)
+                    print('appending both to list')
+            else:
+                #print('Found conflict')
+                continue
+
+        sorted_list = sorted(sub_list, key=lambda k: k['itemHash'])
+        # print('-------------------------------')
+        final_list.append(tuple(sorted_list))
+
+    #print(*final_list)
+
+    final_final_list = []
+    for list in final_list:
+        if list not in final_final_list:
+            final_final_list.append(list)
+    return final_list
 
 @app.route('/callback/bungie')
 def bungie_callback():
@@ -249,7 +323,8 @@ def bungie_get(oauth_session, path):
     app.logger.info("bungie_get url: {}".format(url))
     # app.logger.info('bungie_get headers:  {}'.format(oauth_session.headers))
     response = oauth_session.get(url)
-    # app.logger.info(response, json.dumps(response.json(), indent=1))
+    app.logger.info(response)
+    app.logger.info(response, json.dumps(response.json(), indent=1))
     # TODO: Check for errors
     return response.json()
 
@@ -285,6 +360,8 @@ def get_token(code):
 
 
 def refresh_token():
+    if not session.get('refresh_expires_in') or not session.get('token_json'):
+        return redirect(url_for('index'))
     #app.logger.debug("token_json       : %s", session['token_json'])
     app.logger.info("refresh_expires_in: %s", session['refresh_expires_in'])
     #app.logger.info("now               : %s", datetime.now())

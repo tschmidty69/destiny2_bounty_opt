@@ -51,6 +51,27 @@
 	<div id="form-response2"></div>
 	{% endif %}
 
+	<h4>Bounties Classified</h4>
+	<table style="width:100%">
+		{% for bounty_list in session.classified_bounties -%}
+			<tr>
+				<td>
+				{% for bounty in bounty_list -%}
+					{% for classification, value in classifications.items() -%}
+						{% if bounty.get(classification) != '' %}<b>{{ bounty.get(classification) }}</b>&nbsp;{% endif %}
+					{% endfor -%}
+				{% endfor -%}
+				</td>
+			</tr> 
+			{% for bounty in bounty_list -%}
+				<tr>
+					<td>{{ bounty.name }}</td>
+					<td>{{ bounty.description }}</td>
+				<tr>
+			{% endfor -%}
+		{% endfor -%}
+	</table>
+
 	<h4>Bounties</h4>
 	<table style="width:100%">
 		{% for bounty in session.bounties -%}
