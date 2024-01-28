@@ -10,8 +10,8 @@ class Config(object):
     SESSION_PERMANENT = True
 
     # Flask-Session
-    SESSION_TYPE = os.environ.get('SESSION_TYPE')
-    # could also have done 'url=rediss://:password@host:port/0'
+    SESSION_TYPE = os.environ.get('SESSION_TYPE') or 'filesystem'
+    # could also have done 'url=redis://:password@host:port/0'
     SESSION_REDIS = redis.Redis(host=os.environ.get('REDIS_HOST'),
                                 port=os.environ.get('REDIS_PORT'),
                                 password=os.environ.get('REDIS_PW'))
@@ -22,18 +22,19 @@ classifications = {
     'locations': ['Cosmodrome', 'Europa', 'European Dead Zone', 'Moon', 'Nessus'],
     'sublocations': ['Cadmus Ridge', 'Aesterian Abyss'],
     'activities': ['Strike', 'Gambit', 'Crucible', 'Empire Hunt', 'Lost Sector',
-                   'public events', 'patrols', 'Loot chests'],
+                    'public events', 'patrols', 'Loot chests', 'Vanguard playlists'],
     'weapons': ['Auto Rifle', 'Fusion Rifle', 'Linear Fusion Rifle', 'Pulse Rifle',
-               'Submachine Gun', 'Machine Gun', 'Bow', 'Trace Rifle', 'Shotgun',
-               'Sidearm', 'Sniper Rifles', 'Hand Cannon'],
+                'Submachine Gun', 'Machine Gun', 'Bow', 'Trace Rifle', 'Shotgun',
+                'Sidearm', 'Sniper Rifles', 'Hand Cannon', 'Glaive'],
     'weapon_types': ['Kinetic', 'Energy', 'Power', 'Void weapons', 'Arc weapons',
-                     'Solar weapons', 'Special ammo', 'Primary ammo', 'Heavy ammo'],
+                        'Solar weapons', 'Special ammo', 'Primary ammo', 'Heavy ammo'],
     'precision': ['precision'],
     'finishers': ['finishers'],
     'multiple': ['multiple'],
     'rapidly': ['rapidly'],
+    'melee': ['melee'],
     'ability_types': ['Super', 'Void abilities', 'Arc abilities', 'Solar abilities', 'grenades'],
-    'elements': ['Solar kills', 'Arc kills', 'Void kills'],
+    'elements': ['Solar', 'Arc', 'Void', 'Stasis', 'Strand'],
     'enemy_races': ['Cabal', 'Fallen', 'Hive', 'Taken', 'Scorn', 'Vex'],
     'enemy_types': ['Walker', 'Captain', 'Knight', 'Acolyte', 'Ogre', 'Shrieker']
 }

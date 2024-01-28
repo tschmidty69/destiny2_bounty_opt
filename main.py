@@ -1,28 +1,31 @@
-from flask import Flask, abort, request, redirect, url_for, render_template, session
+from flask import (Flask, abort, request, 
+    redirect, url_for, render_template, session)
 from datetime import datetime, timedelta
 import os
 import pickle
 import requests
 import requests.auth
 import json
-from OpenSSL import SSL
+# from OpenSSL import SSL
 import time
 from flask_bootstrap import Bootstrap
 from flask_session import Session
 from config import *
+# import config
+import pprint
 
 # from bounties import *
 import urllib
-import pickle
-#from colorama import init, Fore, Back, Style
-#from requests_oauthlib import OAuth2Session
-#from forms import *
+
+# from colorama import init, Fore, Back, Style
+# from requests_oauthlib import OAuth2Session
+# from forms import *
 from zipfile import ZipFile
 import sqlite3
 from flask_wtf.csrf import CSRFProtect
 
 # colorama
-#init(autoreset=True)
+# init(autoreset=True)
 
 from logging.config import dictConfig
 
@@ -42,6 +45,8 @@ dictConfig({
     }
 })
 
+pp = pprint.PrettyPrinter(indent=4)
+
 sess = Session()
 
 # initialise the app:
@@ -60,26 +65,27 @@ HEADERS = {"X-API-Key": API_KEY }
 
 CLIENT_ID = app.config['CLIENT_ID']
 
-REDIRECT_URI        =    'https://localhost:5000/callback/bungie'
-AUTH_URL            =     'https://www.bungie.net/en/OAuth/Authorize/?CLIENT_ID='+CLIENT_ID+'&response_type=code&'
-access_token_url     =    'https://www.bungie.net/Platform/App/OAuth/token/'
-refresh_token_url    =    'https://www.bungie.net/Platform/App/OAuth/token/?CLIENT_ID='+CLIENT_ID+'&'
+REDIRECT_URI = 'https://localhost:5000/callback/bungie'
+AUTH_URL = 'https://www.bungie.net/en/OAuth/Authorize/?CLIENT_ID='+CLIENT_ID+'&response_type=code&'
+access_token_url = 'https://www.bungie.net/Platform/App/OAuth/token/'
+refresh_token_url = 'https://www.bungie.net/Platform/App/OAuth/token/?CLIENT_ID='+CLIENT_ID+'&'
 # URL Builder:
 base_url = "https://www.bungie.net/platform/"
 
 
 def cached(cachefile, ttl=86400):
     """
-    A function that creates a decorator which will use "cachefile" for caching the results of the decorated function "fn".
+    A function that creates a decorator which will use "cachefile" for caching 
+    the results of the decorated function "fn".
     """
     def decorator(fn):  # define a decorator for a function "fn"
         def wrapped(*args, **kwargs):   # define a wrapper that will finally call "fn" with all arguments
             if os.path.exists(cachefile):
-               creation_time = os.path.getctime(cachefile)
-               # 86400 is one day
-               if (time.time() - creation_time) // (ttl) >= 1:
-                   os.unlink(cachefile)
-                   app.logger.info("removing cached result from '%s' (older than %s hours)" % (cachefile, ttl/3600))
+                creation_time = os.path.getctime(cachefile)
+                # 86400 is one day
+                if (time.time() - creation_time) // (ttl) >= 1:
+                    os.unlink(cachefile)
+                    app.logger.info("removing cached result from '%s' (older than %s hours)" % (cachefile, ttl/3600))
 
             # if cache exists -> load it and return its content
             if os.path.exists(cachefile):
@@ -148,7 +154,8 @@ def bounties():
 
     if not 'displayName' in session.get('profile'):
         # Get membership with profile id
-        response = bungie_get(oauth_session, '/User/GetMembershipsForCurrentUser/')
+        response = bungie_get(oauth_session,
+                            '/User/GetMembershipsForCurrentUser/')
         if response.get('ErrorCode') != 1:
             error = response.get('Message')
         if response.get('Response'):
@@ -170,15 +177,16 @@ def fetch_character_inventory():
     # Get Character's inventory
     session['bounties'] = []
     url = ("/Destiny2/" + str(session['profile']['membershipType']) + "/Profile/" +
-           str(session['profile']['membershipId']) + "/Character/" +
-           str(session['character']['characterId']) + "/?" +
-           urllib.parse.urlencode({'components': 'CharacterInventories'}))
+            str(session['profile']['membershipId']) + "/Character/" +
+            str(session['character']['characterId']) + "/?" +
+            urllib.parse.urlencode({'components': 'CharacterInventories'}))
     #url = "/Destiny2/3/Profile/4611686018497273430/Character/2305843009574594606/?" + urllib.parse.urlencode({'components': 'CharacterInventories'})
     response = bungie_get(oauth_session, url)
     for item in response['Response']['inventory']['data']['items']:
         item_data = destiny_data['DestinyInventoryItemDefinition'][item['itemHash']]['displayProperties']
         # we only care about bounties (item # 26)
         if destiny_data['DestinyInventoryItemDefinition'][item['itemHash']]['itemType'] != 26:
+            app.logger.info('Skipping '+item_data['name']+': '+item_data['description'])
             continue
         else:
             # TODO: Lookup instanceId and exclude if completed and append progress if not
@@ -202,15 +210,15 @@ def fetch_characters():
 
     # Get Profile with list of characters
     url = ("/Destiny2/" + str(session['profile']['membershipType']) +
-           "/Profile/" + str(session['profile']['membershipId']) + "/?" +
-           urllib.parse.urlencode({'components': 'characters'}))
+            "/Profile/" + str(session['profile']['membershipId']) + "/?" +
+            urllib.parse.urlencode({'components': 'characters'}))
     response = bungie_get(oauth_session, url)
     # app.logger.info("%s: %s", response, json.dumps(response, indent=1))
     for character in response.get('Response').get('characters').get('data'):
         url = ("/Destiny2/" + str(session['profile']['membershipType']) + "/Profile/" +
-               str(session['profile']['membershipId']) + "/Character/" +
-               str(character) + "/?" +
-               urllib.parse.urlencode({'components': 'Characters'}))
+                str(session['profile']['membershipId']) + "/Character/" +
+                str(character) + "/?" +
+                urllib.parse.urlencode({'components': 'Characters'}))
         response = bungie_get(oauth_session, url)
         # app.logger.info("%s: %s", response, json.dumps(response, indent=1))
         session['characters'].append(response.get('Response').get('character').get('data'))
@@ -225,14 +233,14 @@ def classify_bounties():
             for value in types:
                 if value in bounty['description']:
                     # TODO CONVERT TO REDIS
-                    #print(key, value)
+                    # print(key, value)
                     bounty[key]=value
-                    #print("itemHash", bounties_classed[bounty['itemHash']])
+                    # print("itemHash", bounties_classed[bounty['itemHash']])
             if not bounty.get(key):
                     bounty[key]=''
-    # print(bounties_classed)
+    pp.pprint(bounties_classed)
     # for bounty in session.get('bounties'):
-    #     print(bounty)
+        # pp(bounty)
     for bounty in bounties_classed:
         print(bounty)
     bounties = combine_bounties(bounties_classed)
@@ -272,16 +280,16 @@ def combine_bounties(bounties_classed):
                                 sub_value_conflict = True
                         if sub_value_conflict:
                             sub_conflict = True
-                            print("    conflict", dict2['itemHash'], dict3['itemHash'])
-                        else:
-                            print('    no conflict for these', dict2['itemHash'], dict3['itemHash'])
+                            # print("    conflict", dict2['itemHash'], dict3['itemHash'])
+                        #else:
+                            #print('    no conflict for these', dict2['itemHash'], dict3['itemHash'])
                     if not sub_conflict:
-                        print('    adding to list', dict2['itemHash'])
+                        #print('    adding to list', dict2['itemHash'])
                         sub_list.append(dict2)
                 else:
                     sub_list.append(dict1)
                     sub_list.append(dict2)
-                    print('appending both to list')
+                    #print('appending both to list')
             else:
                 #print('Found conflict')
                 continue
@@ -323,8 +331,8 @@ def bungie_get(oauth_session, path):
     app.logger.info("bungie_get url: {}".format(url))
     # app.logger.info('bungie_get headers:  {}'.format(oauth_session.headers))
     response = oauth_session.get(url)
-    app.logger.info(response)
-    app.logger.info(response, json.dumps(response.json(), indent=1))
+    # app.logger.info(response)
+    # app.logger.info(response, json.dumps(response.json(), indent=1))
     # TODO: Check for errors
     return response.json()
 
@@ -371,7 +379,7 @@ def refresh_token():
         app.logger.info("expired: %s seconds",  expiring.seconds)
         code = session['code']
         post_data = {'CLIENT_ID': CLIENT_ID, 'grant_type': 'refresh_token',
-                     'refresh_token': session['token_json']}
+                        'refresh_token': session['token_json']}
         url = access_token_url + urllib.parse.urlencode(post_data)
         HEADERS['Content-type']='application/x-www-form-urlencoded'
         #app.logger.info('HEADERS: {}'.format(HEADERS))
@@ -409,7 +417,7 @@ def save_created_state(state):
     session['state_token'] = state
     pass
 
-
+# check login state
 def is_valid_state(state):
     saved_state = session['state_token']
     if state == saved_state:
@@ -418,7 +426,7 @@ def is_valid_state(state):
     else:
         return False
 
-
+# Fetch the latest manifest data from bungle
 # @app.before_first_request
 @cached('build_dict.pickle')
 def build_dict():
@@ -450,8 +458,8 @@ def build_dict():
             # print("loading", item_json['displayProperties']['name'], ":",
             #       item_json['displayProperties']['description'])
             items_json.append({'hash': item_json['hash'],
-                               'itemType': item_json['itemType'],
-                               'displayProperties': item_json['displayProperties']})
+                                'itemType': item_json['itemType'],
+                                'displayProperties': item_json['displayProperties']})
 
 
         # items_json = [json.loads(item[0]) for item in items]
@@ -471,8 +479,6 @@ def build_dict():
     con.close()
     return all_data
 
-
-@app.before_first_request
 def get_manifest():
     # Check if manifest.zip is up to date
     # else get zip file
@@ -549,4 +555,9 @@ if __name__ == '__main__':
     # User needs to add these:
     context = ('cert.pem', 'key.pem')
 
-    app.run(debug=True, port=5000, ssl_context=context)
+    app.before_request_funcs = [(None, get_manifest())]
+    # app.run(debug=True, port=5000, ssl_context=context)
+    # app.run(debug=True, port=5000, ssl_context='adhoc')
+    app.run(debug=True, port=5000)
+
+

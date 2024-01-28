@@ -77,12 +77,11 @@
 		{% for bounty in session.bounties -%}
 			<tr>
 				<td><div class="bounty-image"><img src="https://bungie.net{{bounty.icon}}"></div></td>
-			  <td>{{ bounty.name }}</td>
+			    	<td>{{ bounty.name }}</td>
 				<td>{{ bounty.description }}</td>
 			</tr>
 		{% endfor -%}
-  </table>
-
+	</table>
 
 <br><a href=" {{ url_for('index') }} ">Return to login page.</a>
 
